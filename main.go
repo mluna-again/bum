@@ -3,10 +3,10 @@ package main
 import (
 	"bytes"
 	"cmp"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"strconv"
@@ -23,6 +23,7 @@ var toggle bool
 // there is probably a better way of doing this but whatever
 const BUM_LOCK = "/tmp/bum-4f766dad-c62f-4102-9f0e-87c27d054f35.lock"
 const BUM_PID = "/tmp/bum-4f766dad-c62f-4102-9f0e-87c27d054f35.pid"
+const BUM_CACHE = "/tmp/bum-4f766dad-c62f-4102-9f0e-87c27d054f35.cache"
 
 type Pane struct {
 	TmuxPaneID    string `json:"pane_id"`
@@ -40,6 +41,7 @@ type model struct {
 	deleteHover bool
 	errMessage  string
 	luna        luna.LunaModel
+	ready       bool
 }
 
 func initialModel(l luna.LunaModel) model {
@@ -53,12 +55,20 @@ func initialModel(l luna.LunaModel) model {
 }
 
 func (m model) Init() tea.Cmd {
-	return m.luna.Init()
+	return tea.Batch(m.luna.Init(), loadCache)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case cacheMsg:
+		m.panes = msg.panes
+		m.ready = true
+		return m, nil
+
 	case serverNewPaneMsg:
+		if !m.ready {
+			break
+		}
 		index := -1
 		for i, p := range m.panes {
 			if p.TmuxPaneID == msg.pane.TmuxPaneID {
@@ -72,6 +82,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.panes[index].Description = msg.pane.Description
 			m.panes[index].NeedsAtention = msg.pane.NeedsAtention
 			m.panes[index].Color = msg.pane.Color
+		}
+		f, err := os.Create(BUM_CACHE)
+		if err != nil {
+			m.errMessage = err.Error()
+			return m, nil
+		}
+		defer f.Close()
+		e := json.NewEncoder(f)
+		err = e.Encode(m.panes)
+		if err != nil {
+			m.errMessage = err.Error()
+			return m, nil
 		}
 		return m, nil
 
@@ -242,7 +264,8 @@ func main() {
 	lock := flock.New(BUM_LOCK)
 	locked, err := lock.TryLock()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err.Error())
+		return
 	}
 	if !locked {
 		if !toggle {
@@ -251,48 +274,42 @@ func main() {
 		}
 		data, err := os.ReadFile(BUM_PID)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Fprintln(os.Stderr, err.Error())
+			return
 		}
 		pid, err := strconv.Atoi(string(data))
 		if err != nil {
-			log.Fatal(err)
+			fmt.Fprintln(os.Stderr, err.Error())
+			return
 		}
 		proc, err := os.FindProcess(pid)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Fprintln(os.Stderr, err.Error())
+			return
 		}
-		err = proc.Kill()
+		err = proc.Signal(os.Interrupt)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error while killing other bum instance: %s", err.Error())
 			os.Exit(1)
 		}
 		os.Exit(0)
 	}
-	defer func() {
-		err = lock.Unlock()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", err.Error())
-		}
-		err = os.Remove(BUM_LOCK)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", err.Error())
-		}
-		err = os.Remove(BUM_PID)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", err.Error())
-		}
-	}()
+	defer cleanup(lock)
+
 	pid, err := os.Create(BUM_PID)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err.Error())
+		return
 	}
 	_, err = pid.WriteString(fmt.Sprintf("%d", os.Getpid()))
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err.Error())
+		return
 	}
 	err = pid.Close()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err.Error())
+		return
 	}
 
 	l, errs := luna.NewLuna(luna.NewLunaParams{
@@ -314,6 +331,7 @@ func main() {
 	go startServer(p)
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
+		cleanup(lock)
 		os.Exit(1)
 	}
 }
