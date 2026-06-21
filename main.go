@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	lipgloss "charm.land/lipgloss/v2"
 	zone "github.com/lrstanley/bubblezone/v2"
+	"github.com/mluna-again/luna/luna"
 )
 
 type Pane struct {
@@ -27,19 +28,21 @@ type model struct {
 	termH      int
 	selected   int
 	errMessage string
+	luna       luna.LunaModel
 }
 
-func initialModel() model {
+func initialModel(l luna.LunaModel) model {
 	return model{
-		panes: []Pane{},
+		panes:    []Pane{},
 		termW:    80,
 		termH:    10,
 		selected: -1,
+		luna:     l,
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return m.luna.Init()
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -129,11 +132,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	return m, nil
+	var cmd tea.Cmd
+	m.luna, cmd = m.luna.Update(msg)
+
+	return m, cmd
 }
 
 func (m model) View() tea.View {
-	cards := []string{}
+	elements := []string{}
+	if len(m.panes) == 0 {
+		elements = append(elements, lipgloss.PlaceHorizontal(m.termW, lipgloss.Center, "No panes tagged yet!"))
+	}
 	for i, p := range m.panes {
 		cs := Card
 		if i == m.selected {
@@ -150,12 +159,17 @@ func (m model) View() tea.View {
 		secondLine := lipgloss.PlaceHorizontal(m.termW, lipgloss.Left, description, lipgloss.WithWhitespaceStyle(cs))
 		c := lipgloss.JoinVertical(lipgloss.Top, firstLine, secondLine)
 
-		cards = append(cards, zone.Mark(fmt.Sprintf("%d", i), c))
+		elements = append(elements, zone.Mark(fmt.Sprintf("%d", i), c))
 	}
 
-	content := lipgloss.JoinVertical(lipgloss.Top, cards...)
-	content = lipgloss.PlaceVertical(m.termH-1, lipgloss.Top, content)
-	content = lipgloss.JoinVertical(lipgloss.Top, content, m.errMessage)
+	l := m.luna.View().Content
+	l = lipgloss.PlaceHorizontal(m.termW, lipgloss.Center, l)
+	lh := lipgloss.Height(l)
+
+	content := lipgloss.JoinVertical(lipgloss.Top, elements...)
+	content = lipgloss.PlaceVertical(m.termH-lh-1, lipgloss.Top, content)
+	content = lipgloss.JoinVertical(lipgloss.Top, content, l, m.errMessage)
+
 	return tea.View{
 		Content:     zone.Scan(content),
 		AltScreen:   true,
@@ -165,8 +179,22 @@ func (m model) View() tea.View {
 }
 
 func main() {
+	l, errs := luna.NewLuna(luna.NewLunaParams{
+		Animation: luna.LunaAnimation("sleeping"),
+		Pet:       luna.LunaPet("cat"),
+		Variant:   luna.LunaVariant("ragdoll"),
+		Size:      luna.SMALL,
+	})
+	if len(errs) > 0 {
+		fmt.Fprintln(os.Stderr, "Error initializing luna:")
+		for _, err := range errs {
+			fmt.Fprintln(os.Stderr, err.Error())
+		}
+		return
+	}
+
 	zone.NewGlobal()
-	p := tea.NewProgram(initialModel())
+	p := tea.NewProgram(initialModel(l))
 	go startServer(p)
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
