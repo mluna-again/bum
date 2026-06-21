@@ -184,6 +184,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selected = -1
 			m.deleteHover = false
 		}
+		m.viewport.SetContent(m.sessionList())
 		return m, nil
 
 	case tea.KeyPressMsg:
