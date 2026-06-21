@@ -14,11 +14,11 @@ import (
 )
 
 type Pane struct {
-	TmuxPaneID     string
-	Title string
-	Description    string
-	NeedsAtention  bool
-	Color          string
+	TmuxPaneID    string
+	Title         string
+	Description   string
+	NeedsAtention bool
+	Color         string
 }
 
 type model struct {
@@ -26,7 +26,6 @@ type model struct {
 	termW      int
 	termH      int
 	selected   int
-	focused    bool
 	errMessage string
 }
 
@@ -41,8 +40,7 @@ func initialModel() model {
 		},
 		termW:    80,
 		termH:    10,
-		selected: 0,
-		focused:  true,
+		selected: -1,
 	}
 }
 
@@ -53,6 +51,7 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case focusPaneMsg:
+		m.selected = -1
 		if msg.err != nil {
 			m.errMessage = msg.err.Error()
 		}
@@ -63,23 +62,36 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.termW = msg.Width
 		return m, nil
 
-	case tea.FocusMsg:
-		m.focused = true
+	case tea.BlurMsg:
+		m.selected = -1
 		return m, nil
 
-	case tea.BlurMsg:
-		m.focused = false
-		return m, nil
+	case tea.FocusMsg:
+		if m.selected == -1 {
+			break
+		}
+		return m, focusPane(m.panes[m.selected])
 
 	case tea.MouseReleaseMsg:
+		if !zone.Get(fmt.Sprintf("%d", m.selected)).InBounds(msg) {
+			break
+		}
+		if m.selected == -1 {
+			break
+		}
 		return m, focusPane(m.panes[m.selected])
 
 	case tea.MouseMsg:
+		newFocused := false
 		for i := range m.panes {
 			if zone.Get(fmt.Sprintf("%d", i)).InBounds(msg) {
 				m.selected = i
+				newFocused = true
 				break
 			}
+		}
+		if !newFocused {
+			m.selected = -1
 		}
 		return m, nil
 
@@ -100,6 +112,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case "enter":
+			if m.selected == -1 {
+				break
+			}
 			return m, focusPane(m.panes[m.selected])
 
 		case "ctrl+c", "q":
@@ -135,9 +150,10 @@ func (m model) View() tea.View {
 	content = lipgloss.PlaceVertical(m.termH-1, lipgloss.Top, content)
 	content = lipgloss.JoinVertical(lipgloss.Top, content, m.errMessage)
 	return tea.View{
-		Content:   zone.Scan(content),
-		AltScreen: true,
-		MouseMode: tea.MouseModeAllMotion,
+		Content:     zone.Scan(content),
+		AltScreen:   true,
+		MouseMode:   tea.MouseModeAllMotion,
+		ReportFocus: true,
 	}
 }
 
