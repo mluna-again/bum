@@ -37,6 +37,7 @@ func startServer(t *tea.Program) {
 		}
 
 		t.Send(serverNewPaneMsg{pane: info})
+		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(fmt.Sprintf("%s added", info.Title)))
 	})
 
