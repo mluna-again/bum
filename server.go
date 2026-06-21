@@ -40,5 +40,5 @@ func startServer(t *tea.Program) {
 		w.Write([]byte(fmt.Sprintf("%s added", info.Title)))
 	})
 
-	log.Fatal(http.ListenAndServe(":8080", router))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), router))
 }

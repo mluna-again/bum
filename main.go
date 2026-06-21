@@ -20,6 +20,7 @@ import (
 
 var toggle bool
 var reset bool
+var port string
 
 // there is probably a better way of doing this but whatever
 const BUM_LOCK = "/tmp/bum-4f766dad-c62f-4102-9f0e-87c27d054f35.lock"
@@ -261,6 +262,7 @@ func (m model) View() tea.View {
 func main() {
 	flag.BoolVar(&toggle, "toggle", false, "start bum or kill current running instance")
 	flag.BoolVar(&reset, "reset", false, "remove cache and exit")
+	flag.StringVar(&port, "port", "56569", "server port")
 	flag.Parse()
 
 	if reset {
