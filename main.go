@@ -84,6 +84,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.selected == -1 {
 			break
 		}
+		m.errMessage = ""
 		return m, focusPane(m.panes[m.selected])
 
 	case tea.MouseReleaseMsg:
@@ -93,6 +94,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.selected == -1 {
 			break
 		}
+		m.errMessage = ""
 		return m, focusPane(m.panes[m.selected])
 
 	case tea.MouseMotionMsg:
@@ -138,6 +140,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.selected == -1 {
 				break
 			}
+			m.errMessage = ""
 			return m, focusPane(m.panes[m.selected])
 
 		case "ctrl+c", "q":
