@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"cmp"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -90,17 +89,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.panes[index].NeedsAtention = msg.pane.NeedsAtention
 			m.panes[index].Color = msg.pane.Color
 		}
-		f, err := os.Create(BUM_CACHE)
+		err := m.saveCache()
 		if err != nil {
 			m.errMessage = err.Error()
-			return m, nil
-		}
-		defer f.Close()
-		e := json.NewEncoder(f)
-		err = e.Encode(m.panes)
-		if err != nil {
-			m.errMessage = err.Error()
-			return m, nil
 		}
 		m.viewport.SetContent(m.sessionList())
 		return m, nil
@@ -155,6 +146,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.panes = newPanes
 			m.selected = -1
 			m.deleteHover = false
+			err := m.saveCache()
+			if err != nil {
+				m.errMessage = err.Error()
+			}
+			m.viewport.SetContent(m.sessionList())
 			return m, nil
 		}
 		m.errMessage = ""

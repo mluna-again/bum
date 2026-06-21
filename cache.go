@@ -10,6 +10,7 @@ import (
 type cacheMsg struct {
 	panes []Pane
 }
+
 func loadCache() tea.Msg {
 	data, err := os.ReadFile(BUM_CACHE)
 	if err != nil || string(data) == "" {
@@ -23,4 +24,19 @@ func loadCache() tea.Msg {
 	}
 
 	return cacheMsg{panes: panes}
+}
+
+func (m model) saveCache() error {
+	f, err := os.Create(BUM_CACHE)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	e := json.NewEncoder(f)
+	err = e.Encode(m.panes)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
