@@ -119,6 +119,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.BlurMsg:
 		m.selected = -1
+		m.viewport.SetContent(m.sessionList())
 		return m, nil
 
 	case tea.FocusMsg:
@@ -126,7 +127,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			break
 		}
 		m.errMessage = ""
-		return m, focusPane(m.panes[m.selected])
+		pane := m.panes[m.selected]
+		m.selected = -1
+		m.viewport.SetContent(m.sessionList())
+		return m, focusPane(pane)
 
 	case tea.MouseReleaseMsg:
 		if !zone.Get(fmt.Sprintf("%d", m.selected)).InBounds(msg) {
@@ -164,6 +168,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// leaving a row selected
 		if msg.X >= m.termW-2 || msg.X < 1 {
 			m.selected = -1
+			m.viewport.SetContent(m.sessionList())
 			return m, nil
 		}
 		for i := range m.panes {
