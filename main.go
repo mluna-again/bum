@@ -158,8 +158,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.errMessage = ""
+		pane := m.panes[m.selected]
+		m.selected = -1
 		m.viewport.SetContent(m.sessionList())
-		return m, focusPane(m.panes[m.selected])
+		return m, focusPane(pane)
 
 	case tea.MouseMotionMsg:
 		newFocused := false
