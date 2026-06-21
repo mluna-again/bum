@@ -23,12 +23,13 @@ type Pane struct {
 }
 
 type model struct {
-	panes      []Pane
-	termW      int
-	termH      int
-	selected   int
-	errMessage string
-	luna       luna.LunaModel
+	panes       []Pane
+	termW       int
+	termH       int
+	selected    int
+	deleteHover bool
+	errMessage  string
+	luna        luna.LunaModel
 }
 
 func initialModel(l luna.LunaModel) model {
@@ -111,12 +112,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			info := zone.Get(id)
 			if info.InBounds(msg) {
 				m.selected = i
+				if zone.Get(fmt.Sprintf("%d-delete", i)).InBounds(msg) {
+					m.deleteHover = true
+				} else {
+					m.deleteHover = false
+				}
 				newFocused = true
 				break
 			}
 		}
 		if !newFocused {
 			m.selected = -1
+			m.deleteHover = false
 		}
 		return m, nil
 
@@ -161,8 +168,13 @@ func (m model) View() tea.View {
 	}
 	for i, p := range m.panes {
 		cs := Card
+		ds := Card
 		if i == m.selected {
 			cs = HoveredCard
+			ds = HoveredCard
+		}
+		if i == m.selected && m.deleteHover {
+			ds = InnerHoveredCard
 		}
 		indicator := Indicator.Inherit(cs).Render(" ")
 		if p.Color != "" {
@@ -170,8 +182,14 @@ func (m model) View() tea.View {
 		}
 		title := Title.Inherit(cs).Render(p.Title)
 		description := Description.Inherit(cs).Render(p.Description)
+		deleteIcon := ""
+		if i == m.selected {
+			deleteIcon = Delete.Inherit(ds).Render(" Delete ")
+		}
+		deleteIcon = zone.Mark(fmt.Sprintf("%d-delete", i), deleteIcon)
 		firstLine := lipgloss.JoinHorizontal(lipgloss.Left, indicator, title)
-		firstLine = lipgloss.PlaceHorizontal(m.termW, lipgloss.Left, firstLine, lipgloss.WithWhitespaceStyle(cs))
+		firstLine = lipgloss.PlaceHorizontal(m.termW-lipgloss.Width(deleteIcon), lipgloss.Left, firstLine, lipgloss.WithWhitespaceStyle(cs))
+		firstLine = lipgloss.JoinHorizontal(lipgloss.Left, firstLine, deleteIcon)
 		secondLine := lipgloss.PlaceHorizontal(m.termW, lipgloss.Left, description, lipgloss.WithWhitespaceStyle(cs))
 		c := lipgloss.JoinVertical(lipgloss.Top, firstLine, secondLine)
 
