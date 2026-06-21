@@ -35,7 +35,7 @@ func initialModel() model {
 		panes: []Pane{
 			{"config:1", "tmux", "config files", false, "2"},
 			{"config:5", "nvim", "config files", false, "2"},
-			{"bum:1", "nvim", "source code", false, "2"},
+			{"bum:1", "bum", "source code", false, "2"},
 			{"storage:4", "yazi", "zfs dataset", false, "3"},
 			{"void:1", "the void", "idle", false, "1"},
 		},
