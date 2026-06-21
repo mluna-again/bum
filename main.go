@@ -81,10 +81,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, focusPane(m.panes[m.selected])
 
-	case tea.MouseMsg:
+	case tea.MouseMotionMsg:
 		newFocused := false
+
+		// prevents "ghost" switches (on the tea.FocusMsg event) when the mouse goes out of the window
+		// leaving a row selected
+		if msg.X >= m.termW - 2 || msg.X < 1 {
+			m.selected = -1
+			return m, nil
+		}
 		for i := range m.panes {
-			if zone.Get(fmt.Sprintf("%d", i)).InBounds(msg) {
+			id := fmt.Sprintf("%d", i)
+			info := zone.Get(id)
+			if info.InBounds(msg) {
 				m.selected = i
 				newFocused = true
 				break
