@@ -11,8 +11,10 @@ import (
 	"os/exec"
 	"strconv"
 
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	lipgloss "charm.land/lipgloss/v2"
+
 	"github.com/gofrs/flock"
 	zone "github.com/lrstanley/bubblezone/v2"
 	"github.com/mluna-again/luna/luna"
@@ -36,14 +38,16 @@ type Pane struct {
 }
 
 type model struct {
-	panes       []Pane
-	termW       int
-	termH       int
-	selected    int
-	deleteHover bool
-	errMessage  string
-	luna        luna.LunaModel
-	ready       bool
+	panes        []Pane
+	termW        int
+	termH        int
+	selected     int
+	deleteHover  bool
+	errMessage   string
+	luna         luna.LunaModel
+	ready        bool
+	windowLoaded bool
+	viewport     viewport.Model
 }
 
 func initialModel(l luna.LunaModel) model {
@@ -65,6 +69,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case cacheMsg:
 		m.panes = msg.panes
 		m.ready = true
+		m.viewport.SetContent(m.sessionList())
 		return m, nil
 
 	case serverNewPaneMsg:
@@ -97,6 +102,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.errMessage = err.Error()
 			return m, nil
 		}
+		m.viewport.SetContent(m.sessionList())
 		return m, nil
 
 	case focusPaneMsg:
@@ -109,6 +115,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.termH = msg.Height
 		m.termW = msg.Width
+		lh := lipgloss.Height(m.luna.View().Content)
+		if !m.windowLoaded {
+			m.viewport = viewport.New(viewport.WithWidth(msg.Width), viewport.WithHeight(msg.Height-lh))
+		} else {
+			m.viewport.SetWidth(msg.Width)
+			m.viewport.SetHeight(msg.Height - lh)
+		}
+		m.windowLoaded = true
 		return m, nil
 
 	case tea.BlurMsg:
@@ -143,6 +157,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.errMessage = ""
+		m.viewport.SetContent(m.sessionList())
 		return m, focusPane(m.panes[m.selected])
 
 	case tea.MouseMotionMsg:
@@ -203,53 +218,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
+	cmds := []tea.Cmd{}
 	m.luna, cmd = m.luna.Update(msg)
+	cmds = append(cmds, cmd)
 
-	return m, cmd
+	m.viewport, cmd = m.viewport.Update(msg)
+	cmds = append(cmds, cmd)
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m model) View() tea.View {
-	elements := []string{}
-	if len(m.panes) == 0 {
-		elements = append(elements, lipgloss.PlaceHorizontal(m.termW, lipgloss.Center, "No panes tagged yet!"))
-	}
-	for i, p := range m.panes {
-		cs := Card
-		ds := Card
-		if i == m.selected {
-			cs = HoveredCard
-			ds = HoveredCard
-		}
-		if i == m.selected && m.deleteHover {
-			ds = InnerHoveredCard
-		}
-		indicator := Indicator.Inherit(cs).Render(" ")
-		if p.Color != "" {
-			indicator = Indicator.Foreground(lipgloss.Color(p.Color)).Inherit(cs).Render("●")
-		}
-		title := Title.Inherit(cs).Render(p.Title)
-		description := Description.Inherit(cs).Render(p.Description)
-		deleteIcon := ""
-		if i == m.selected {
-			deleteIcon = Delete.Inherit(ds).Render(" Delete ")
-		}
-		deleteIcon = zone.Mark(fmt.Sprintf("%d-delete", i), deleteIcon)
-		firstLine := lipgloss.JoinHorizontal(lipgloss.Left, indicator, title)
-		firstLine = lipgloss.PlaceHorizontal(m.termW-lipgloss.Width(deleteIcon), lipgloss.Left, firstLine, lipgloss.WithWhitespaceStyle(cs))
-		firstLine = lipgloss.JoinHorizontal(lipgloss.Left, firstLine, deleteIcon)
-		secondLine := lipgloss.PlaceHorizontal(m.termW, lipgloss.Left, description, lipgloss.WithWhitespaceStyle(cs))
-		c := lipgloss.JoinVertical(lipgloss.Top, firstLine, secondLine)
-
-		elements = append(elements, zone.Mark(fmt.Sprintf("%d", i), c))
-	}
-
 	l := m.luna.View().Content
 	l = lipgloss.PlaceHorizontal(m.termW, lipgloss.Center, l)
-	lh := lipgloss.Height(l)
 
-	content := lipgloss.JoinVertical(lipgloss.Top, elements...)
-	content = lipgloss.PlaceVertical(m.termH-lh-1, lipgloss.Top, content)
-	content = lipgloss.JoinVertical(lipgloss.Top, content, l, m.errMessage)
+	if !m.windowLoaded {
+		return tea.NewView(l)
+	}
+
+	content := lipgloss.JoinVertical(lipgloss.Top, m.viewport.View(), l, m.errMessage)
 
 	return tea.View{
 		Content:     zone.Scan(content),
