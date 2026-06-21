@@ -15,7 +15,7 @@ import (
 
 type Pane struct {
 	TmuxPaneID     string
-	RunningProgram string
+	Title string
 	Description    string
 	NeedsAtention  bool
 	Color          string
@@ -33,11 +33,11 @@ type model struct {
 func initialModel() model {
 	return model{
 		panes: []Pane{
-			{"%1", "nvim", "", false, ""},
-			{"%1", "nvim", "idk", false, ""},
-			{"%1", "tail", "watching logs", false, "3"},
-			{"%1", "grep", "searching logs", true, "2"},
-			{"%1", "btm", "idle", false, "1"},
+			{"config:1", "tmux", "config files", false, "2"},
+			{"config:5", "nvim", "config files", false, "2"},
+			{"bum:1", "nvim", "source code", false, "2"},
+			{"storage:4", "yazi", "zfs dataset", false, "3"},
+			{"void:1", "the void", "idle", false, "1"},
 		},
 		termW:    80,
 		termH:    10,
@@ -121,7 +121,7 @@ func (m model) View() tea.View {
 		if p.Color != "" {
 			indicator = Indicator.Foreground(lipgloss.Color(p.Color)).Inherit(cs).Render("●")
 		}
-		title := Title.Inherit(cs).Render(p.RunningProgram)
+		title := Title.Inherit(cs).Render(p.Title)
 		description := Description.Inherit(cs).Render(p.Description)
 		firstLine := lipgloss.JoinHorizontal(lipgloss.Left, indicator, title)
 		firstLine = lipgloss.PlaceHorizontal(m.termW, lipgloss.Left, firstLine, lipgloss.WithWhitespaceStyle(cs))
