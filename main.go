@@ -4,15 +4,25 @@ import (
 	"bytes"
 	"cmp"
 	"errors"
+	"flag"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
+	"strconv"
 
 	tea "charm.land/bubbletea/v2"
 	lipgloss "charm.land/lipgloss/v2"
+	"github.com/gofrs/flock"
 	zone "github.com/lrstanley/bubblezone/v2"
 	"github.com/mluna-again/luna/luna"
 )
+
+var toggle bool
+
+// there is probably a better way of doing this but whatever
+const BUM_LOCK = "/tmp/bum-4f766dad-c62f-4102-9f0e-87c27d054f35.lock"
+const BUM_PID = "/tmp/bum-4f766dad-c62f-4102-9f0e-87c27d054f35.pid"
 
 type Pane struct {
 	TmuxPaneID    string `json:"pane_id"`
@@ -226,6 +236,65 @@ func (m model) View() tea.View {
 }
 
 func main() {
+	flag.BoolVar(&toggle, "toggle", false, "start bum or kill current running instance")
+	flag.Parse()
+
+	lock := flock.New(BUM_LOCK)
+	locked, err := lock.TryLock()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if !locked {
+		if !toggle {
+			fmt.Fprintln(os.Stderr, "another instance of bum is already running")
+			os.Exit(1)
+		}
+		data, err := os.ReadFile(BUM_PID)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pid, err := strconv.Atoi(string(data))
+		if err != nil {
+			log.Fatal(err)
+		}
+		proc, err := os.FindProcess(pid)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = proc.Kill()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error while killing other bum instance: %s", err.Error())
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+	defer func() {
+		err = lock.Unlock()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", err.Error())
+		}
+		err = os.Remove(BUM_LOCK)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", err.Error())
+		}
+		err = os.Remove(BUM_PID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", err.Error())
+		}
+	}()
+	pid, err := os.Create(BUM_PID)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = pid.WriteString(fmt.Sprintf("%d", os.Getpid()))
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = pid.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	l, errs := luna.NewLuna(luna.NewLunaParams{
 		Animation: luna.LunaAnimation("sleeping"),
 		Pet:       luna.LunaPet("cat"),

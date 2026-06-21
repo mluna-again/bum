@@ -6,7 +6,9 @@ require (
 	charm.land/bubbletea/v2 v2.0.7
 	charm.land/lipgloss/v2 v2.0.4
 	github.com/go-chi/chi/v5 v5.3.0
+	github.com/gofrs/flock v0.13.0
 	github.com/lrstanley/bubblezone/v2 v2.0.0
+	github.com/mluna-again/luna v0.1.15
 )
 
 require (
@@ -20,7 +22,6 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.4.0 // indirect
 	github.com/mattn/go-runewidth v0.0.24 // indirect
-	github.com/mluna-again/luna v0.1.15 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
