@@ -108,11 +108,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.termW = msg.Width
 		lh := lipgloss.Height(m.luna.View().Content)
 		if !m.windowLoaded {
-			m.viewport = viewport.New(viewport.WithWidth(msg.Width), viewport.WithHeight(msg.Height-lh - 1))
+			m.viewport = viewport.New(viewport.WithWidth(msg.Width), viewport.WithHeight(msg.Height-lh - 2))
 			m.viewport.SetContent(m.sessionList())
 		} else {
 			m.viewport.SetWidth(msg.Width)
-			m.viewport.SetHeight(msg.Height - lh - 1)
+			m.viewport.SetHeight(msg.Height - lh - 2)
 		}
 		m.windowLoaded = true
 		return m, nil
@@ -168,7 +168,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// prevents "ghost" switches (on the tea.FocusMsg event) when the mouse goes out of the window
 		// leaving a row selected
-		if msg.X >= m.termW-2 || msg.X < 1 {
+		if msg.X >= m.termW-2 || msg.X < 2 {
 			m.selected = -1
 			m.viewport.SetContent(m.sessionList())
 			return m, nil
@@ -241,7 +241,7 @@ func (m model) View() tea.View {
 		return tea.NewView(l)
 	}
 
-	content := lipgloss.JoinVertical(lipgloss.Top, m.viewport.View(), l, m.errMessage)
+	content := lipgloss.JoinVertical(lipgloss.Top, "", m.viewport.View(), l, m.errMessage)
 
 	return tea.View{
 		Content:     zone.Scan(content),
