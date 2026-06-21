@@ -48,16 +48,20 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case serverNewPaneMsg:
-		alreadyStored := false
-		for _, p := range m.panes {
+		index := -1
+		for i, p := range m.panes {
 			if p.TmuxPaneID == msg.pane.TmuxPaneID {
-				alreadyStored = true
+				index = i
 			}
 		}
-		if alreadyStored {
-			break
+		if index == -1 {
+			m.panes = append(m.panes, msg.pane)
+		} else {
+			m.panes[index].Title = msg.pane.Title
+			m.panes[index].Description = msg.pane.Description
+			m.panes[index].NeedsAtention = msg.pane.NeedsAtention
+			m.panes[index].Color = msg.pane.Color
 		}
-		m.panes = append(m.panes, msg.pane)
 		return m, nil
 
 	case focusPaneMsg:
