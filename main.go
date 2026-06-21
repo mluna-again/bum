@@ -95,6 +95,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.selected == -1 {
 			break
 		}
+		if zone.Get(fmt.Sprintf("%d-delete", m.selected)).InBounds(msg) {
+			newPanes := []Pane{}
+			for i, pane := range m.panes {
+				if i == m.selected {
+					continue
+				}
+				newPanes = append(newPanes, pane)
+			}
+			m.panes = newPanes
+			m.selected = -1
+			m.deleteHover = false
+			return m, nil
+		}
 		m.errMessage = ""
 		return m, focusPane(m.panes[m.selected])
 
