@@ -14,11 +14,11 @@ import (
 )
 
 type Pane struct {
-	TmuxPaneID    string
-	Title         string
-	Description   string
-	NeedsAtention bool
-	Color         string
+	TmuxPaneID    string `json:"pane_id"`
+	Title         string `json:"title"`
+	Description   string `json:"description"`
+	NeedsAtention bool   `json:"needs_attention"`
+	Color         string `json:"color"`
 }
 
 type model struct {
@@ -31,13 +31,7 @@ type model struct {
 
 func initialModel() model {
 	return model{
-		panes: []Pane{
-			{"config:1", "tmux", "config files", false, "2"},
-			{"config:5", "nvim", "config files", false, "2"},
-			{"bum:1", "bum", "source code", false, "2"},
-			{"storage:4", "yazi", "zfs dataset", false, "3"},
-			{"void:1", "the void", "idle", false, "1"},
-		},
+		panes: []Pane{},
 		termW:    80,
 		termH:    10,
 		selected: -1,
@@ -50,6 +44,10 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case serverNewPaneMsg:
+		m.panes = append(m.panes, msg.pane)
+		return m, nil
+
 	case focusPaneMsg:
 		m.selected = -1
 		if msg.err != nil {
@@ -86,7 +84,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// prevents "ghost" switches (on the tea.FocusMsg event) when the mouse goes out of the window
 		// leaving a row selected
-		if msg.X >= m.termW - 2 || msg.X < 1 {
+		if msg.X >= m.termW-2 || msg.X < 1 {
 			m.selected = -1
 			return m, nil
 		}
@@ -169,6 +167,7 @@ func (m model) View() tea.View {
 func main() {
 	zone.NewGlobal()
 	p := tea.NewProgram(initialModel())
+	go startServer(p)
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
