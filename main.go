@@ -241,7 +241,10 @@ func (m model) View() tea.View {
 		return tea.NewView(l)
 	}
 
-	content := lipgloss.JoinVertical(lipgloss.Top, "", m.viewport.View(), l, m.errMessage)
+	bar := lipgloss.PlaceHorizontal(m.termW, lipgloss.Center, "Panes")
+	bar = TitleBar.Render(bar)
+
+	content := lipgloss.JoinVertical(lipgloss.Top, bar, m.viewport.View(), l, m.errMessage)
 
 	return tea.View{
 		Content:     zone.Scan(content),
