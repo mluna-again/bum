@@ -108,7 +108,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.termW = msg.Width
 		lh := lipgloss.Height(m.luna.View().Content)
 		if !m.windowLoaded {
-			m.viewport = viewport.New(viewport.WithWidth(msg.Width), viewport.WithHeight(msg.Height-lh - 2))
+			m.viewport = viewport.New(viewport.WithWidth(msg.Width), viewport.WithHeight(msg.Height-lh-2))
 			m.viewport.SetContent(m.sessionList())
 		} else {
 			m.viewport.SetWidth(msg.Width)
