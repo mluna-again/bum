@@ -68,7 +68,7 @@ type syncMsg struct {
 
 // removes dead panes
 func (m model) sync() tea.Msg {
-	output, err := runTmuxCmd("list-panes", "-a", "-F", "'#{pane_id}'")
+	output, err := runTmuxCmd("list-panes", "-a", "-F", "#{pane_id}")
 	if err != nil {
 		return syncMsg{err: err}
 	}
@@ -107,7 +107,7 @@ func initialModel(l luna.LunaModel) model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(m.luna.Init(), loadCache, refreshTick())
+	return tea.Batch(m.luna.Init(), loadCache, m.sync, refreshTick())
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
