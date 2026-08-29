@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
@@ -42,11 +44,56 @@ type model struct {
 	termH        int
 	selected     int
 	deleteHover  bool
-	errMessage   string
+	message      string
 	luna         luna.LunaModel
 	ready        bool
 	windowLoaded bool
 	viewport     viewport.Model
+}
+
+const REFRESH_TIME = time.Second * 5
+
+type refreshMsg struct{}
+
+func refreshTick() tea.Cmd {
+	return tea.Tick(REFRESH_TIME, func(t time.Time) tea.Msg {
+		return refreshMsg{}
+	})
+}
+
+type syncMsg struct {
+	err     error
+	newPanes []Pane
+}
+
+// removes dead panes
+func (m model) sync() tea.Msg {
+	output, err := runTmuxCmd("list-panes", "-a", "-F", "'#{pane_id}'")
+	if err != nil {
+		return syncMsg{err: err}
+	}
+
+	panes := []Pane{}
+	existing := map[string]bool{}
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		existing[line] = true
+	}
+
+	for _, p := range m.panes {
+		_, ok := existing[p.TmuxPaneID]
+		if !ok {
+			continue
+		}
+
+		panes = append(panes, p)
+	}
+
+	return syncMsg{newPanes: panes}
 }
 
 func initialModel(l luna.LunaModel) model {
@@ -60,11 +107,26 @@ func initialModel(l luna.LunaModel) model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(m.luna.Init(), loadCache)
+	return tea.Batch(m.luna.Init(), loadCache, refreshTick())
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case syncMsg:
+		if msg.err != nil {
+			m.message = msg.err.Error()
+			return m, nil
+		}
+		m.panes = msg.newPanes
+		m.viewport.SetContent(m.sessionList())
+		m.message = ""
+		m.saveCache()
+		return m, nil
+
+	case refreshMsg:
+		m.message = "Refreshing..."
+		return m, tea.Batch(refreshTick(), m.sync)
+
 	case cacheMsg:
 		m.panes = msg.panes
 		m.ready = true
@@ -91,7 +153,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		err := m.saveCache()
 		if err != nil {
-			m.errMessage = err.Error()
+			m.message = err.Error()
 		}
 		m.viewport.SetContent(m.sessionList())
 		return m, nil
@@ -99,7 +161,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case focusPaneMsg:
 		m.selected = -1
 		if msg.err != nil {
-			m.errMessage = msg.err.Error()
+			m.message = msg.err.Error()
+		} else {
+			m.message = ""
 		}
 		return m, nil
 
@@ -126,13 +190,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.selected == -1 {
 			break
 		}
-		m.errMessage = ""
+		m.message = ""
 		pane := m.panes[m.selected]
 		m.selected = -1
 		m.viewport.SetContent(m.sessionList())
 		return m, focusPane(pane)
 
 	case tea.MouseReleaseMsg:
+		m.message = ""
 		if !zone.Get(fmt.Sprintf("%d", m.selected)).InBounds(msg) {
 			break
 		}
@@ -152,12 +217,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.deleteHover = false
 			err := m.saveCache()
 			if err != nil {
-				m.errMessage = err.Error()
+				m.message = err.Error()
+			} else {
+				m.message = ""
 			}
 			m.viewport.SetContent(m.sessionList())
 			return m, nil
 		}
-		m.errMessage = ""
 		pane := m.panes[m.selected]
 		m.selected = -1
 		m.viewport.SetContent(m.sessionList())
@@ -214,7 +280,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.selected == -1 {
 				break
 			}
-			m.errMessage = ""
+			m.message = ""
 			return m, focusPane(m.panes[m.selected])
 
 		case "ctrl+c", "q":
@@ -244,7 +310,7 @@ func (m model) View() tea.View {
 	bar := lipgloss.PlaceHorizontal(m.termW, lipgloss.Center, "Panes")
 	bar = TitleBar.Render(bar)
 
-	content := lipgloss.JoinVertical(lipgloss.Top, bar, m.viewport.View(), l, m.errMessage)
+	content := lipgloss.JoinVertical(lipgloss.Top, bar, m.viewport.View(), l, m.message)
 
 	return tea.View{
 		Content:     zone.Scan(content),
