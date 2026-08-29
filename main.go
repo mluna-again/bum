@@ -107,7 +107,7 @@ func initialModel(l luna.LunaModel) model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(m.luna.Init(), loadCache, m.sync, refreshTick())
+	return tea.Batch(m.luna.Init(), loadCache, refreshTick())
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -131,7 +131,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.panes = msg.panes
 		m.ready = true
 		m.viewport.SetContent(m.sessionList())
-		return m, nil
+		return m, m.sync
 
 	case serverNewPaneMsg:
 		if !m.ready {
