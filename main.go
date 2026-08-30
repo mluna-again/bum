@@ -310,7 +310,22 @@ func (m model) View() tea.View {
 	bar := lipgloss.PlaceHorizontal(m.termW, lipgloss.Center, "Panes")
 	bar = TitleBar.Render(bar)
 
-	content := lipgloss.JoinVertical(lipgloss.Top, bar, m.viewport.View(), l, m.message)
+	items := m.viewport.View()
+	if m.viewport.Height() > 0 && m.viewport.TotalLineCount() > m.viewport.VisibleLineCount() {
+		if !m.viewport.AtTop() {
+			split := strings.Split(items, "\n")
+			itemsWithIndicator := append([]string{}, m.ScrollIndicator(""))
+			itemsWithIndicator = append(itemsWithIndicator, split[1:]...)
+			items = strings.Join(itemsWithIndicator, "\n")
+		}
+		if !m.viewport.AtBottom() {
+			split := strings.Split(items, "\n")
+      itemsWithIndicator := split[0:len(split)-2]
+			itemsWithIndicator = append(itemsWithIndicator, m.ScrollIndicator(""))
+			items = strings.Join(itemsWithIndicator, "\n")
+		}
+	}
+	content := lipgloss.JoinVertical(lipgloss.Top, bar, items, l, m.message)
 
 	return tea.View{
 		Content:     zone.Scan(content),

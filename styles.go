@@ -14,3 +14,7 @@ var HoveredCard = lipgloss.NewStyle().Background(BG)
 var InnerHoveredCard = lipgloss.NewStyle().Background(BGDARK)
 var Bordered = lipgloss.NewStyle().Border(lipgloss.ASCIIBorder())
 var TitleBar = lipgloss.NewStyle().Background(BGDARK).Foreground(FG)
+
+func (m model) ScrollIndicator(icon string) string {
+	return lipgloss.PlaceHorizontal(m.viewport.Width(), lipgloss.Center, icon)
+}
