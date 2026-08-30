@@ -56,10 +56,16 @@ func addItem(locked bool, args ...string) int {
 			return 1
 		}
 
+		added := false
 		for i, pp := range panes {
 			if p.TmuxPaneID == pp.TmuxPaneID {
 				panes[i] = p
+				added = true
+				break
 			}
+		}
+		if !added {
+			panes = append(panes, p)
 		}
 
 		err = writeCache(panes)
