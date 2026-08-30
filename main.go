@@ -320,7 +320,7 @@ func (m model) View() tea.View {
 		}
 		if !m.viewport.AtBottom() {
 			split := strings.Split(items, "\n")
-      itemsWithIndicator := split[0:len(split)-2]
+      itemsWithIndicator := split[0:len(split)-1]
 			itemsWithIndicator = append(itemsWithIndicator, m.ScrollIndicator(""))
 			items = strings.Join(itemsWithIndicator, "\n")
 		}
