@@ -62,7 +62,7 @@ func refreshTick() tea.Cmd {
 }
 
 type syncMsg struct {
-	err     error
+	err      error
 	newPanes []Pane
 }
 
@@ -324,6 +324,9 @@ func main() {
 	flag.BoolVar(&toggle, "toggle", false, "start bum or kill current running instance")
 	flag.BoolVar(&reset, "reset", false, "remove cache and exit")
 	flag.StringVar(&port, "port", "56569", "server port")
+	flag.StringVar(&addCmdDescription, "description", "", "add: description")
+	flag.StringVar(&addCmdPaneID, "pane", "", "add: pane")
+	flag.StringVar(&addCmdColor, "color", "", "add: color")
 	flag.Parse()
 
 	if reset {
@@ -341,6 +344,11 @@ func main() {
 		fmt.Fprintln(os.Stderr, err.Error())
 		return
 	}
+
+	if status, ran := runSubcommand(locked, flag.Args()...); ran {
+		os.Exit(status)
+	}
+
 	if !locked {
 		if !toggle {
 			fmt.Fprintln(os.Stderr, "another instance of bum is already running")
@@ -363,7 +371,7 @@ func main() {
 		}
 		err = proc.Signal(os.Interrupt)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error while killing other bum instance: %s", err.Error())
+			fmt.Fprintf(os.Stderr, "error while killing other bum instance: %s\n", err.Error())
 			os.Exit(1)
 		}
 		os.Exit(0)

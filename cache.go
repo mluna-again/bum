@@ -27,13 +27,32 @@ func loadCache() tea.Msg {
 }
 
 func (m model) saveCache() error {
+	return writeCache(m.panes)
+}
+
+func readCache() ([]Pane, error) {
+	data, err := os.ReadFile(BUM_CACHE)
+	if err != nil {
+		return nil, err
+	}
+
+	panes := []Pane{}
+	err = json.Unmarshal(data, &panes)
+	if err != nil {
+		return nil, err
+	}
+
+	return panes, nil
+}
+
+func writeCache(data any) error {
 	f, err := os.Create(BUM_CACHE)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	e := json.NewEncoder(f)
-	err = e.Encode(m.panes)
+	err = e.Encode(data)
 	if err != nil {
 		return err
 	}
